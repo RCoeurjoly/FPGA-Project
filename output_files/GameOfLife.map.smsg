@@ -1,0 +1,3 @@
+Warning (10268): Verilog HDL information at gameoflife.v(787): always construct contains both blocking and non-blocking assignments File: //SRVB/Homes$/poploven/Desktop/ECE241 Project/gameoflife.v Line: 787
+Warning (10268): Verilog HDL information at gameoflife.v(946): always construct contains both blocking and non-blocking assignments File: //SRVB/Homes$/poploven/Desktop/ECE241 Project/gameoflife.v Line: 946
+Warning (10268): Verilog HDL information at gameoflife.v(1012): always construct contains both blocking and non-blocking assignments File: //SRVB/Homes$/poploven/Desktop/ECE241 Project/gameoflife.v Line: 1012

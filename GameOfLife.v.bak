@@ -1,0 +1,225 @@
+/*-----screen: 160 pixels wide x 120 pixels high-----*/
+
+
+module GameOfLife (input SW, KEY, CLOCK_50)
+
+	// call everything from here...
+	
+	wire go;
+	wire [2:0] colour;
+	integer x,y;
+	
+	parameter n = 16;
+	parameter m = 16;
+	
+	wire [n*m: 0] array;
+	//initial array = 0;
+	initial begin
+		array[n-1   :   0] = 16'b0000001000100000;
+		array[2*n-1 :   n] = 16'b0000001000100000;
+		array[3*n-1 : 2*n] = 16'b0000001000100000;
+		array[4*n-1 : 3*n] = 16'b0001001000100000;
+		array[5*n-1 : 4*n] = 16'b0000001000100000;
+		array[6*n-1 : 5*n] = 16'b0000101000100000;
+		array[7*n-1 : 6*n] = 16'b0000001000100000;
+		array[8*n-1 : 7*n] = 16'b0000001000100000;
+		array[9*n-1 : 8*n] = 16'b0000001000100000;
+		array[10*n-1: 9*n] = 16'b0000001000100000;
+		array[11*n-1:10*n] = 16'b0000001000100100;
+		array[12*n-1:11*n] = 16'b0000001000100000;
+		array[13*n-1:12*n] = 16'b0000001000100000;
+		array[14*n-1:13*n] = 16'b0010001000100000;
+		array[15*n-1:14*n] = 16'b0000001000100000;
+		array[16*n-1:15*n] = 16'b0000001000100000;
+		end
+
+	
+	/***** GAME FSM *****/
+	currentGameStateFSM FSM( .w(SW[0]), 
+				 			 .resetn(SW[9]), 
+				 			 .CLOCK_50(CLOCK_50), 
+				 			 .go(go)
+				 		   );
+
+	integer i;
+						   
+	always @{posedge CLOCK_50}
+		begin
+			for(i = 0; i < n*m; i=i+1)
+				begin
+					x = i%16;
+					y = i/16;
+					colour = array[i];
+				end
+		end
+						   
+	/***** FILL SCREEN *****/					   
+	fill screenOut(
+			.CLOCK_50(CLOCK_50),  // On Board 50 MHz
+			.KEY(KEY[3:0]),		  // On Board Keys
+
+			// Ports below are for the VGA output //  Don't change.
+			.VGA_CLK,   			  //  VGA Clock
+			.VGA_HS,  				  //  VGA H_SYNC
+			.VGA_VS,				  //  VGA V_SYNC
+			.VGA_BLANK_N,			  //  VGA BLANK
+			.VGA_SYNC_N,			  //  VGA SYNC
+			.VGA_R(VGA_R[7:0]),   	  //  VGA Red[9:0]
+			.VGA_G(VGA_G[7:0]),
+			.VGA_B(VGA_B[7:0]),
+
+			// Your inputs + outputs here //
+			.go(go), 					  // PLAY state is ON -> allowed to fill screen
+			.colour(colour);
+			.x(x);   	// fix these
+			.y(y);   	// fix these
+		   );
+
+endmodule
+
+
+
+
+
+module currentGameStateFSM (input w, resetn, CLOCK_50, output go) // w = SW[0], resetn = ~KEY[0]
+
+	// y -> current state, Y -> next state
+	reg y, Y;
+	parameter   IDLE = 1'b0,  // IDLE   ->  in-game screen where user can decide which squares to make live
+			    PLAY = 1'b1;  // PLAY   ->  game is played (squares evolve)  
+
+
+	// state control
+	always @(*)
+		case(y)
+			IDLE:  if(w)  Y = PLAY;
+				   else   Y = IDLE;	
+
+			PLAY:  if(w)  Y = PLAY;
+				   else   Y = IDLE;
+
+			default: 	  Y = IDLE;
+		endcase
+
+
+	// state FF's
+	always @(posedge CLOCK_50)
+		if (!resetn) 
+			y = IDLE;
+		else 
+			y = Y;
+
+
+	// combinational logic for output (go = 1 when PLAY)
+	assign go = y;
+
+endmodule
+
+
+
+
+
+module clock2Hz(input CLOCK_50, output reg clock); // generates clock running at 2Hz
+    
+    reg [31:0] count;
+        
+    always @(posedge CLOCK_50) 
+    	begin
+        	if (count == 25000000) begin
+        		count <= 0;
+        		clock <= 1;
+        	end
+        	else begin
+        		count <= count + 1;
+        		clock <= 0;
+        	end				 
+        end
+  
+endmodule
+
+
+
+
+
+module fill(
+			input CLOCK_50,			// On Board 50 MHz
+			input [3:0] KEY,		// On Board Keys
+						
+
+			// Ports below are for the VGA output //  Don't change.
+			output 	 	  VGA_CLK,   			  //  VGA Clock
+			output 	   	  VGA_HS,  				  //  VGA H_SYNC
+			output 		  VGA_VS,				  //  VGA V_SYNC
+			output        VGA_BLANK_N,			  //  VGA BLANK
+			output 	      VGA_SYNC_N,			  //  VGA SYNC
+			output	[7:0] VGA_R,   				  //  VGA Red[9:0]
+			output	[7:0] VGA_G,	 			  //  VGA Green[9:0]
+			output	[7:0] VGA_B   				  //  VGA Blue[9:0]
+
+
+			// Your inputs + outputs here //
+			input go, 					  // PLAY state is ON -> allowed to fill screen 
+			input [2:0] colour;
+			input x;
+			input y;
+		   );
+
+
+	// Create (colour, x, y and writeEn) wires that are inputs to the controller + resetn
+	wire       resetn;
+	assign     resetn = KEY[0];
+	wire       writeEn;
+
+
+
+	//
+	//
+	always @(*)
+		if (go)  writeEn <= 1'b1;
+		else 	 writeEn <= 1'b0;
+	//
+	//
+
+
+
+	// Create an Instance of a VGA controller - can be only one!
+	// Define number of colours + the initial background image file (.MIF) for controller.
+	vga_adapter VGA(
+					.resetn(resetn),
+					.clock(CLOCK_50),
+					.colour(colour),
+					.x(x),
+					.y(y),
+					.plot(writeEn),
+
+					/* Signals for DAC to drive monitor. */
+					.VGA_R(VGA_R),
+					.VGA_G(VGA_G),
+					.VGA_B(VGA_B),
+					.VGA_HS(VGA_HS),
+					.VGA_VS(VGA_VS),
+					.VGA_BLANK(VGA_BLANK_N),
+					.VGA_SYNC(VGA_SYNC_N),
+					.VGA_CLK(VGA_CLK)
+				   );
+
+
+	defparam VGA.RESOLUTION 		  	 = "160x120";
+	defparam VGA.MONOCHROME 			 = "FALSE";
+	defparam VGA.BITS_PER_COLOUR_CHANNEL = 1;
+	defparam VGA.BACKGROUND_IMAGE 	 	 = "black.mif"; // load in another initial image here (i.e. loading screen)
+			
+	// Put your code here. Your code should produce signals x,y,colour and writeEn
+	// for the VGA controller, in addition to any other functionality your design requires.
+	
+endmodule
+
+
+
+
+
+module nextStateSolver(/**/)
+
+
+
+endmodule
